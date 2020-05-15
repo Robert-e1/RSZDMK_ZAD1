@@ -1,0 +1,230 @@
+#include <LiquidCrystal.h>
+#include <util/delay.h>
+
+LiquidCrystal lcd(A0, A1, A2, A3, A4, A5);
+
+char ocitaj_taster()
+{
+  char taster = 0;
+  unsigned char row;
+  
+  MCUCR &= ~0x10;
+  PORTD = 0x0f; 
+  
+  for(row = 0x80; row != 0x08; row >>= 1)
+  {
+    DDRD = row;
+	_delay_ms(2);
+    
+    switch(row | ((~PIND) & 0x0f))
+    {
+      case 0x88:
+      	taster = '1'; break;
+      case 0x84:
+      	taster = '2'; break;
+      case 0x82:
+      	taster = '3'; break;
+      case 0x81:
+      	taster = 'A'; break;
+		
+	  case 0x48:
+      	taster = '4'; break;
+      case 0x44:
+      	taster = '5'; break;
+      case 0x42:
+      	taster = '6'; break;
+      case 0x41:
+      	taster = 'B'; break;
+		
+	  case 0x28:
+      	taster = '7'; break;
+      case 0x24:
+      	taster = '8'; break;
+      case 0x22:
+      	taster = '9'; break;
+      case 0x21:
+      	taster = 'C'; break;
+		
+	  case 0x18:
+      	taster = '*'; break;
+      case 0x14:
+      	taster = '0'; break;
+      case 0x12:
+      	taster = '#'; break;
+      case 0x11:
+      	taster = 'D'; break;
+    }
+  }
+  
+  return taster;
+}// KRAJ f-je ocitaj_taster()
+
+uint8_t pik[8] = {
+	B00100,
+    B01010,
+    B10101,
+    B01010,
+    B00100,
+    B00100,  
+    B01110,
+    B01110  
+};
+
+uint8_t karo[8] = {
+	B00000,
+    B00100,
+    B01110,
+    B11111,
+    B11111 , 
+    B01110,
+    B00100,
+    B00000
+};
+
+uint8_t herc[8] = {
+	B00000,
+    B01010,
+    B11111,
+    B11111,
+    B11111 , 
+    B01110,
+    B00100,  
+    B00000
+   
+};
+
+uint8_t tref[8] = {
+    B00000,
+    B00100,
+    B01110,
+    B11011,
+    B01110 , 
+    B00100,
+    B01010 ,
+    B01110  
+};
+
+char generate_symbols(){
+
+}
+
+
+char string_gen[5] = {'\0'};
+char string_unet[5] = {'\0'};
+char taster_prethodni = 0, taster_sadasnji = 0;
+char row = 0, col = 0;
+char str_cmp = 0;
+
+int main()
+{	
+  	
+  	lcd.createChar(0, pik);
+  	lcd.createChar(1, karo);
+  	lcd.createChar(2, herc);
+  	lcd.createChar(3, tref);
+  	char simbol = 0; 		//ukazuje na kojem se simbolu trenutno nalazimo
+  	lcd.begin(16, 2);
+  	
+	
+	while(1)
+    { 
+      lcd.clear();
+      col = 0;
+      row = 0;
+      str_cmp = 0;
+      string_unet[0] = '\0';
+      lcd.print("Pritisnite '*'");
+      
+      while(ocitaj_taster() != '*');
+      
+      for(char i = 0; i< 4; i++){
+      	string_gen[i] = byte(random(0,4));
+      }
+      string_gen[4] = '\0';		//generisanje simbola
+      
+      lcd.clear();
+      for(char i = 0; i< 4; i++){
+      	lcd.print(string_gen[i]);
+      }
+      _delay_ms(2000);
+      lcd.clear();
+      lcd.print("----");
+      lcd.blink();
+      lcd.setCursor(0,0);
+      
+      while(ocitaj_taster() != '5'){
+      	taster_sadasnji = ocitaj_taster();
+        _delay_ms(100);
+        if (taster_sadasnji != 0 && taster_sadasnji != taster_prethodni)
+      {
+          switch(taster_sadasnji){
+          	
+            case '8' : 
+            if(simbol == 0){
+            	simbol = 3;
+          	}else 
+            	simbol--;
+            string_unet[col] = byte(simbol); 
+        	lcd.write(byte(simbol));
+            lcd.setCursor(col,row);
+
+            break;
+            case '2' :
+            if(simbol == 3){
+            	simbol = 0;
+          	}else 
+            	simbol++;
+            string_unet[col] = byte(simbol); 
+        	lcd.write(byte(simbol));
+            lcd.setCursor(col,row);
+            break;
+            case '4' :
+            if(col == 0) {
+            	col = 3;
+            }else
+              	col--;        
+            lcd.setCursor(col,row);
+            break;
+            case '6' :
+            if(col == 3) {
+            	col = 0;
+            }else
+              	col++;
+            lcd.setCursor(col,row);
+            break;
+            
+          }//end switch
+          string_unet[4] = '\0';
+       }
+
+       taster_prethodni = taster_sadasnji; //soft. diferenciranje 
+               
+      }//while ! '5'
+      for(int i = 0; i < 4; i++){
+      	if(string_unet[i] == string_gen[i])
+          str_cmp++;
+        
+      }
+  
+      	lcd.noBlink();
+      	lcd.clear();
+        	for(int i = 0; i< 4; i++) {
+        		lcd.write(string_gen[i]);
+        	}
+        lcd.setCursor(0,1);
+        	for(int i = 0; i< 4; i++) {
+        		lcd.write(string_unet[i]);
+        	}
+      if(str_cmp == 4) {
+        	lcd.setCursor(8,1);
+        	lcd.print("Pogodio");
+      }else{
+       		 lcd.setCursor(8,1);
+        	lcd.print("Pogresio");	
+    	} 
+      while(ocitaj_taster() != '*');
+
+    }//while 1
+  
+  	return 0;
+}
